@@ -9,6 +9,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.WritableComparable;
+import org.apache.hadoop.io.WritableComparator;
 import org.apache.hadoop.io.WritableUtils;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
@@ -20,7 +21,7 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 public class eser {
 	
 	//Per essere più precisi, sarebbe meglio modificare i valori restituiti dal reducer
-	//in FloatWritable anzichè Text
+	//anzichè trattarli come Text
 	
 	
 	static class myComparator implements WritableComparable<myComparator> {
@@ -58,13 +59,56 @@ public class eser {
 		@Override
 		public int compareTo(myComparator o) {
 			
+			Double a = Double.parseDouble(v);
+			Double b = Double.parseDouble(o.v);
 			if (k.compareTo(o.k)==0)
 		     {
-		       return (v.compareTo(o.v));
+		       return (a.compareTo(b));
 		     }
 		     else return (k.compareTo(o.k));
 		   }
+			
+			
+			
 	}
+	
+
+public static class compa extends WritableComparator {
+
+
+  protected compa() {
+	  super(myComparator.class, true);
+  }
+  
+ 
+  public int compare(WritableComparable w1, WritableComparable w2) {
+   myComparator k1 = (myComparator)w1;
+   myComparator k2 = (myComparator)w2;
+   
+   int result = k1.k.compareTo(k2.k);
+   if(0 == result) {
+    result = Float.valueOf(k1.v).compareTo(Float.valueOf(k2.v));
+   }
+   return result;
+  }
+ }
+
+
+public static class myGroup extends WritableComparator {
+
+ protected myGroup() {
+   super(myComparator.class, true);
+  }
+  
+  @Override
+  public int compare(WritableComparable w1, WritableComparable w2) {
+   myComparator k1 = (myComparator)w1;
+   myComparator k2 = (myComparator)w2;
+   
+   return k1.k.compareTo(k2.k);
+  }
+ }
+	
 	
 	
 	
@@ -157,6 +201,8 @@ Configuration conf = new Configuration();
 		
 		job.setMapperClass(mySortedMap.class);
 		job.setReducerClass(mySortedReducer.class);
+		job.setSortComparatorClass(compa.class);
+		job.setGroupingComparatorClass(myGroup.class);
 		
 		job.setMapOutputKeyClass(myComparator.class);
 		job.setMapOutputValueClass(Text.class);
